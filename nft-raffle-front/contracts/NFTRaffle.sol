@@ -31,6 +31,9 @@ contract NFTRaffle is Ownable, ERC721 {
         players = new address[](0);
     }
 
+    // 2 options:
+    // 1. user performs the transfer themselves.
+    // 2. owner does the transfer to the winner.
     function transfer(address to, uint tokenId) external {
         transferFrom(address(this), to, tokenId);
         emit Transfer(to, tokenId);
