@@ -77,6 +77,7 @@ line 972
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 // import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
 
@@ -110,7 +111,9 @@ contract IERC721 is IERC165  {
 
 }
 */
-contract NFTRaffle is Ownable, IERC721Receiver {
+contract NFTRaffle is Ownable, IERC721Receiver, ReentrancyGuard {
+
+    event Received(address, uint);
     
     function transferFrom(address from, address to, uint256 tokenId, address nftTokenContract) internal {
         // transfer can be called by the Owner or Approved Addresses
@@ -167,11 +170,11 @@ contract NFTRaffle is Ownable, IERC721Receiver {
         uint raffleStartDate;
         uint raffleDuration; // in ms 
         uint minimumNumberOfTickets; 
-        uint ticketPrice;
+        uint ticketPrice; // in ETH or wei
         uint numberOfTicketsSold;
         uint status;
         address[] players; 
-        // mapping(address => uint) ticketsBought;
+        mapping(address => uint) numOfTicketsBought;
         int raffleWinnerTicket;
     }
 
@@ -282,10 +285,17 @@ contract NFTRaffle is Ownable, IERC721Receiver {
         require(raffle.raffleStartDate + raffle.raffleDuration >= block.timestamp, "Raffle has ended.");
         require(msg.value == raffle.ticketPrice * amount);
         require(amount > 0);
-        uint numberOfTickets = raffle.ticketPrice * amount;
+        uint totalPrice = raffle.ticketPrice * amount;
         raffle.numberOfTicketsSold = raffle.numberOfTicketsSold + amount;
-        payable(address(this)).transfer(numberOfTickets);
-        //payable(numberOfTickets).transfer(address(this).balance);
+        (bool success, ) = payable(address(this)).call{value: totalPrice}("");
+        // receive() external payable {
+        //     emit Received(msg.sender, msg.value);
+        // } // not sure if this is required
+        require(success, "Failed to send Ether");
+        for (uint i = 0; i < amount; i++) {
+            raffle.players.push(msg.sender);
+        }
+        raffle.numOfTicketsBought[msg.sender] = raffle.numOfTicketsBought[msg.sender] + amount;
     }
 
     function pickWinner(uint raffleId) external onlyOwner {
@@ -296,24 +306,31 @@ contract NFTRaffle is Ownable, IERC721Receiver {
         if (raffle.minimumNumberOfTickets <= raffle.numberOfTicketsSold) {
             uint index = random(raffleId) % raffle.players.length;
             address winner = raffle.players[index];
-            payable (winner).transfer(address(this).balance); // token transfer?
-            // do we need approve for erc721?
-            //payable approve(winner, raffle.tokenId);
+            transferFrom(address(this), winner, raffle.nftTokenId, raffle.nftTokenContract);
             raffle.status = uint(RaffleStatus.Finished);
-        } else { // not enough tickets sold. Not sure where else this ogic can live
+            raffle.players = new address[](0);
+        } else { // not enough tickets sold. Not sure where else this logic can live
             raffle.status = uint(RaffleStatus.Failed);
-            // transfer back NFT to host address
+            transferFrom(address(this), raffle.host, raffle.nftTokenId, raffle.nftTokenContract);  
         }
 
         raffle.players = new address[](0); // do we want to delete all the players of a raffle when it is completed?
     }
 
-    /*
-    function claimMoney() {
-        uint amountToClaim = ticketsBought[msg.sender]*ticketPrice;
-                                
+    function claimMoney(uint raffleId) payable, external, nonReentrant {
+        Raffle failedRaffle = raffles[raffleId]
+        require(failedRaffle.status == RaffleStatus.Failed, "Cannot claim refund on active or successfully completed raffles.");
+        require(failedRaffle.numOfTicketsBought[msg.sender] > 0, "No tickets left for refund");
+        // approval required by claimer
+        uint amountToClaim = failedRaffle.numOfTicketsBought[claimer] * failedRaffle.ticketPrice;
+        (bool success, ) = payable(msg.sender).call{value: totalPrice}("");
+        // receiver?
+        // receive() external payable {
+        //     emit Received(msg.sender, msg.value);
+        // } // not sure if this is required
+        require(success, "Failed to send Ether");
+        failedRaffle.numOfTicketsBought[claimer] = 0;
     }
-    */
 
     // 2 options:
     // 1. user performs the transfer themselves.
