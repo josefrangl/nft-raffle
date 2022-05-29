@@ -1,13 +1,13 @@
 import * as React from 'react';
 import { useRouter } from 'next/router';
-import Layout from '../components/Layout';
+import Layout from '../../../components/Layout';
 
 export default function Raffle() {
     const router = useRouter();
-    const { raffleId } = router.query;
+    const { id } = router.query;
 return (
     <div>
-        <p>Raffle: {raffleId}</p>
+        <p>Raffle: {id}</p>
     </div>
 );
 
