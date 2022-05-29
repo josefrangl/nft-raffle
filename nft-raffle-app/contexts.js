@@ -3,6 +3,7 @@ import { createContext, useContext } from 'react';;
 export const AccountContext = createContext("");
 export const ContractsContext = createContext({
     nftRaffleContract: null,
+    nftContract: null
 })
 
 export function useAccount() {

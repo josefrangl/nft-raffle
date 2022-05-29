@@ -4,7 +4,7 @@ import { ethers } from 'ethers';
 // 4: Rinkeby
 // 1337: localhost network
 
-const networkId = process.env.NEXT_PUBLIC_NETWORK_ID || "1337"
+const networkId = process.env.NEXT_PUBLIC_NETWORK_ID || "4" // was 1337
 const networks = {
     "1": "mainnet",
     "4": "rinkeby",
@@ -60,6 +60,7 @@ export const getCurrentAccount = async () => {
 }
 
 export const getSignedContract = (address, abi) => {
+    console.log('addres', address, abi);
     const { ethereum } = window;
 
     const provider = new ethers.providers.Web3Provider(ethereum, "any");
